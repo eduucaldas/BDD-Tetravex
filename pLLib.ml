@@ -27,7 +27,7 @@ module PropositionalLogic(VT: OrderedType) = struct
     | (Boolean true, Boolean false) -> Boolean false
     | _ -> Bin_Op (l, arrow, r)
 
-  let rec double_arrow l r = match (l,r) with
+  let double_arrow l r = match (l,r) with
     | (Boolean l, Boolean r) -> Boolean (l=r)
     | _ -> Bin_Op (l, arrow, r)
 
@@ -57,7 +57,7 @@ module PropositionalLogic(VT: OrderedType) = struct
       | Variable p -> match !v with
         | None -> v := Some p; [|Boolean false; Boolean true|]
         | Some vr when (VT.equal vr p) -> [|Boolean false; Boolean true|]
-        | Some vr -> [|Variable p; Variable p|]
+        | _ -> [|Variable p; Variable p|]
     in
     let possib = simpl_rec formu in
     (!v, possib.(0), possib.(1))
@@ -70,11 +70,11 @@ module PropositionalLogic(VT: OrderedType) = struct
     match formu with
     | Bin_Op (l, con, r) -> con (simplify l) (simplify r)
     | Un_op (u, f) -> u (simplify f)
-    | Boolean b -> formu
-    | Variable p -> formu
+    | Boolean _ -> formu
+    | Variable _ -> formu
 
   let choose v_ff_ft b =
-    let (v, form_f, form_t) = v_ff_ft in
+    let (_, form_f, form_t) = v_ff_ft in
     match b with
     | false -> form_f
     | true -> form_t
@@ -126,8 +126,8 @@ struct
         | (false, false) -> -1
         | _ -> 0
       )
-    | (Leaf l1, _) -> -1
-    | (_, Leaf l2) -> 1
+    | (Leaf _, _) -> -1
+    | (_, Leaf _) -> 1
     | (Node (l1, v1, r1), Node (l2, v2, r2)) ->
       match VT.compare v1 v2 with
       | 0 -> (
@@ -143,7 +143,7 @@ struct
   let rec create_random formu =
     match formu with
     | PL.Boolean b -> Leaf b
-    | f -> let (v, form_f, form_t) = PL.eval_random_v formu in
+    | _ -> let (v, form_f, form_t) = PL.eval_random_v formu in
       match v with
       | Some vr -> Node (create_random form_f, vr, create_random form_t)
       | None -> assert (form_f = form_t); create_random form_t
@@ -160,7 +160,7 @@ struct
     let rec create_rec formul =
       match formul with
       | PL.Boolean b -> Leaf b
-      | f -> if Queue.is_empty q then raise InsufficientEvaluations else
+      | _ -> if Queue.is_empty q then raise InsufficientEvaluations else
           let (v, form_f, form_t) = PL.eval_v formul (Queue.pop q) in
           match v with
           | Some vr -> Node (create_rec form_f, vr, create_rec form_t)
@@ -169,7 +169,7 @@ struct
     create_rec formu
 
 
-  (* for this we need a set to check whether the element was found already  *)
+  (* for this we need a hashtbl to check whether the element was found already  *)
   (* let compress dec_tree =
      module found_trees = Set.Make(BDD)
       match decision_tree with
