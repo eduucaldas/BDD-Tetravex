@@ -1,17 +1,20 @@
-module type VariableType =
+
+module type OrderedType =
 sig
   type t
+  val compare : t -> t -> int
   val equal : t -> t -> bool
 end
 
 module CharType =
 struct
   type t = char
-  let equal c1 c2 = (c1 = c2)
+  let equal c1 c2 = Char.equal c1 c2
+  let compare c1 c2 = Char.compare c1 c2
 end
 
 
-module PropositionalLogic(VT: VariableType) = struct
+module PropositionalLogic(VT: OrderedType) = struct
   type formule =
     | Boolean of bool
     | Variable of VT.t
@@ -43,7 +46,8 @@ module PropositionalLogic(VT: VariableType) = struct
   let rec neg f = match f with
     | Boolean bf -> Boolean (not bf)
     | _ -> Un_op (neg, f)
-  (* be cariful with the equality *)
+
+  (* be careful with the equality *)
   let eval_one formu var =
     let v = ref var in
     let rec simpl_rec form = match form with
@@ -69,19 +73,37 @@ module PropositionalLogic(VT: VariableType) = struct
     | Boolean b -> formu
     | Variable p -> formu
 
+  let choose v_ff_ft b =
+    let (v, form_f, form_t) = v_ff_ft in
+    match b with
+    | false -> form_f
+    | true -> form_t
+
   (* Simplifies a formule, using a list of booleans to be assigned to the variables in the order they appear, infix *)
-  let eval_list formu l_ev =
-    let simplify_step formu b = let (v, form_f, form_t) = eval_random_v formu in
-      match b with
-      | false -> form_f
-      | true -> form_t
+  let eval_list_random formu l_b =
+    let eval_step formul b = choose (eval_random_v formul) b in
+    let simple_formu = simplify formu in
+    List.fold_left eval_step simple_formu l_b
+
+  (* In this one we especify the order by givin the variables with the booleans *)
+  let eval_order formu l_ev =
+    let eval_step formul match_var_b =
+      let var, b = match_var_b in
+      choose (eval_v formul var) b
     in
-    if l_ev = [] then simplify formu else List.fold_left simplify_step formu l_ev
+    let simple_formu = simplify formu in
+    List.fold_left eval_step simple_formu l_ev
 
   exception PartialValuation
   (* Perhaps check if we`re giving too many arguments *)
-  let valuation formu l_ev =
-    let evaluated_formu = eval_list formu l_ev in
+  let valuation_random formu l_b =
+    let evaluated_formu = eval_list_random formu l_b in
+    match evaluated_formu with
+    | Boolean b -> b
+    | _ -> raise PartialValuation
+
+  let valuation_order formu l_ev =
+    let evaluated_formu = eval_order formu l_ev in
     match evaluated_formu with
     | Boolean b -> b
     | _ -> raise PartialValuation
@@ -91,26 +113,71 @@ module PropositionalLogic(VT: VariableType) = struct
 
 end
 
-module BDD(VT: VariableType) =
+module BDD(VT: OrderedType) : OrderedType =
 struct
   type binary_tree =
     | Leaf of bool
     | Node of binary_tree * VT.t * binary_tree
+  type t = binary_tree
+  let rec compare bt1 bt2 = match (bt1, bt2) with
+    | (Leaf l1, Leaf l2) -> (
+        match (l1, l2) with
+        | (true, false) -> 1
+        | (false, false) -> -1
+        | _ -> 0
+      )
+    | (Leaf l1, _) -> -1
+    | (_, Leaf l2) -> 1
+    | (Node (l1, v1, r1), Node (l2, v2, r2)) ->
+      match VT.compare v1 v2 with
+      | 0 -> (
+          match compare l1 l2 with
+          | 0 -> compare r1 r2
+          | d -> d
+        )
+      | c -> c
+  let equal bt1 bt2 = (compare bt1 bt2 = 0)
 
   module PL = PropositionalLogic(VT)
 
-
-  let rec create formu =
+  let rec create_random formu =
     match formu with
     | PL.Boolean b -> Leaf b
     | f -> let (v, form_f, form_t) = PL.eval_random_v formu in
       match v with
-      | Some vr -> Node (create form_f, vr, create form_t)
-      | None -> assert (form_f = form_t); create form_t
+      | Some vr -> Node (create_random form_f, vr, create_random form_t)
+      | None -> assert (form_f = form_t); create_random form_t
+
+  let of_list l =
+    let q = Queue.create () in
+    List.iter ((Core.Fn.flip Queue.push) q) l; q
+
+  exception InsufficientEvaluations
 
 
+  let create_order formu l_v =
+    let q = of_list l_v in
+    let rec create_rec formul =
+      match formul with
+      | PL.Boolean b -> Leaf b
+      | f -> if Queue.is_empty q then raise InsufficientEvaluations else
+          let (v, form_f, form_t) = PL.eval_v formul (Queue.pop q) in
+          match v with
+          | Some vr -> Node (create_rec form_f, vr, create_rec form_t)
+          | None -> assert (form_f = form_t); create_rec form_t
+    in
+    create_rec formu
+
+
+  (* for this we need a set to check whether the element was found already  *)
+  (* let compress dec_tree =
+     module found_trees = Set.Make(BDD)
+      match decision_tree with
+      | Leaf l -> Leaf l
+      |  -> expr2 *)
 
 end
+
 
 
 (* module Boolean =
