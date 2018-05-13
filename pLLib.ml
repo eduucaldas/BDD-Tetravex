@@ -6,15 +6,25 @@ sig
   val equal : t -> t -> bool
 end
 
+
+module type VariableType =
+sig
+  type t
+  val compare : t -> t -> int
+  val equal : t -> t -> bool
+  val str : t -> string
+end
+
 module CharType =
 struct
   type t = char
   let equal c1 c2 = Char.equal c1 c2
   let compare c1 c2 = Char.compare c1 c2
+  let str c = Char.escaped c
 end
 
 
-module PropositionalLogic(VT: OrderedType) = struct
+module PropositionalLogic(VT: VariableType) = struct
   type formule =
     | Boolean of bool
     | Variable of VT.t
@@ -113,33 +123,35 @@ module PropositionalLogic(VT: OrderedType) = struct
 
 end
 
-module BDD(VT: OrderedType) : OrderedType =
+module BDD(VT: VariableType) =
 struct
   type binary_tree =
     | Leaf of bool
     | Node of binary_tree * VT.t * binary_tree
-  type t = binary_tree
+
   let rec compare bt1 bt2 = match (bt1, bt2) with
     | (Leaf l1, Leaf l2) -> (
         match (l1, l2) with
         | (true, false) -> 1
-        | (false, false) -> -1
+        | (false, true) -> -1
         | _ -> 0
       )
     | (Leaf _, _) -> -1
     | (_, Leaf _) -> 1
     | (Node (l1, v1, r1), Node (l2, v2, r2)) ->
-      match VT.compare v1 v2 with
+      match (VT.compare v1 v2) with
       | 0 -> (
-          match compare l1 l2 with
-          | 0 -> compare r1 r2
+          match (compare l1 l2) with
+          | 0 -> (compare r1 r2)
           | d -> d
         )
       | c -> c
-  let equal bt1 bt2 = (compare bt1 bt2 = 0)
+
+  let equal bt1 bt2 = ((compare bt1 bt2) = 0)
 
   module PL = PropositionalLogic(VT)
 
+  (* OK *)
   let rec create_random formu =
     match formu with
     | PL.Boolean b -> Leaf b
@@ -153,28 +165,61 @@ struct
     List.iter ((Core.Fn.flip Queue.push) q) l; q
 
   exception InsufficientEvaluations
-
-
-  let create_order formu l_v =
-    let q = of_list l_v in
-    let rec create_rec formul =
-      match formul with
-      | PL.Boolean b -> Leaf b
-      | _ -> if Queue.is_empty q then raise InsufficientEvaluations else
-          let (v, form_f, form_t) = PL.eval_v formul (Queue.pop q) in
-          match v with
-          | Some vr -> Node (create_rec form_f, vr, create_rec form_t)
-          | None -> assert (form_f = form_t); create_rec form_t
-    in
-    create_rec formu
-
+  exception ThisShouldntOccurCreate_order
+  let rec create_order formu l_v =
+    match formu with
+    | PL.Boolean b -> Leaf b
+    | _ -> match l_v with
+      | [] -> raise InsufficientEvaluations
+      | h::t -> let (v, form_f, form_t) = PL.eval_v formu h in
+        match v with
+        | Some vr -> let (fff , fft) = (create_order form_f t,create_order form_t t) in
+          if (equal fft fff) then fff else Node (fff, vr, fft)
+        | None -> raise ThisShouldntOccurCreate_order (* create_order form_t t *)
 
   (* for this we need a hashtbl to check whether the element was found already  *)
-  (* let compress dec_tree =
-     module found_trees = Set.Make(BDD)
-      match decision_tree with
-      | Leaf l -> Leaf l
-      |  -> expr2 *)
+  let compress dec_tree =
+    let found_trees = Hashtbl.create 54 in
+    let f = Leaf false in let t = Leaf true in
+    let rec compress_rec dt =
+      match dt with
+      | Leaf l -> if l then t else f
+      | Node (dtf, v, dtt) ->
+        let (dtf_zip, dtt_zip) = (compress_rec dtf, compress_rec dtt) in
+        let dt_zip = (if (equal dtf_zip dtt_zip) then dtf_zip else Node (dtf_zip, v, dtt_zip)) in
+        Hashtbl.add found_trees v dt_zip; dt_zip
+    in
+    compress_rec dec_tree
+
+  let print dec_tree =
+    let tree_id = Hashtbl.create 54 in Hashtbl.add tree_id dec_tree "0";Hashtbl.add tree_id (Leaf true) "@t";Hashtbl.add tree_id (Leaf false) "@f";
+    let counter = ref 1 in
+    let str dt = Hashtbl.find tree_id dt in
+    let discover dt = Hashtbl.add tree_id dt (string_of_int !counter); counter := !counter + 1 in
+    let rec print_rec dt =
+      match dt with
+      | Leaf _ -> ()
+      | Node (dtf, v, dtt) -> Printf.printf "%s %s " (str dt) (VT.str v);
+        match (Hashtbl.find_opt tree_id dtt, Hashtbl.find_opt tree_id dtf) with
+        | None, None -> discover dtt;discover dtf;Printf.printf "%s %s\n" (str dtt) (str dtf); print_rec dtt; print_rec dtf;
+        | None, Some s  -> discover dtt; Printf.printf "%s %s\n" (str dtt) s; print_rec dtt;
+        | Some s, None  -> discover dtf; Printf.printf "%s %s\n" s (str dtf); print_rec dtf;
+        | Some s1, Some s2 -> Printf.printf "%s %s\n" s1 s2;
+    in
+    print_rec dec_tree;
+(*
+    let print dec_tree =
+      let tree_id = tree_id dec_tree in
+      let rec print_rec dt =
+        let str dt = match dt with
+          | Leaf l -> if l then "@t" else "@f"
+          | n -> string_of_int (Hashtbl.find tree_id n)
+        in
+        match dt with
+        | Leaf _ -> ()
+        | Node (dtf, v, dtt) -> Printf.printf "%s %s %s %s\n" (str dt) (VT.str v) (str dtt) (str dtf); print_rec dtt; print_rec dtf
+      in
+      print_rec dec_tree *)
 
 end
 
