@@ -126,9 +126,103 @@ module PropositionalLogic(VT: VariableType) = struct
     | Boolean b -> b
     | _ -> raise PartialValuation
 
-  (* TODO: Module to create formule from input *)
+  (*Function to clean all the spaces and transform the symbols into a one char symbol in order
+    to tokenize the original string
+    input = string f_string
+    output = compact_f_string
+    equivalence map 
+    original string/tokenized string 
+    
+    " "/"" , it means we take out all spaces 
+    true/t
+    false/f
+    &&/&
+    ||/|
+    <->/=
+    ->/>
+  
+    *)
+  let compact_input f_string = 
+    (*Str.regexp string, gets a string and returns a regexp type corresponding to that string*)
+    let regexp_space = Str.regexp " " in
+    let regexp_true = Str.regexp "true" in
+    let regexp_false = Str.regexp "false" in
+    let regexp_AND = Str.regexp "&&" in
+    let regexp_OR = Str.regexp "||" in 
+    let regexp_equivalence = Str.regexp "<->" in
+    let regexp_implication = Str.regexp "->" in
+    let step1 = Str.global_replace regexp_space "" f_string in
+    let step2 = Str.global_replace regexp_true "t" step1 in
+    let step3 = Str.global_replace regexp_false "f" step2 in
+    let step4 = Str.global_replace regexp_AND "&" step3 in
+    let step5 = Str.global_replace regexp_OR"|" step4 in
+    let step6 = Str.global_replace regexp_equivalence "=" step5 in
+    Str.global_replace regexp_implication ">" step6
+
+    (*O objetivo no final é criar uma liste de types com o primeiro item tendo a maior priridade. 
+      Daí fica mais suave criar a árvore *)
+
+  type grammaire = 
+        | Integer of int
+        | Parenthese_open
+        | Parenthese_close
+        | Vrai
+        | Faux
+        | Neg
+        | Et
+        | Ou
+        | Implique
+        | Equivalence
+    
+  let print = function
+        | Integer(x) -> string_of_int x
+        | Parenthese_open -> "("
+        | Parenthese_close -> ")"
+        | Vrai -> "true"
+        | Faux -> "false"
+        | Neg -> "~"
+        | Et -> "&&"
+        | Ou -> "||"
+        | Implique -> "->"
+        | Equivalence -> "<->"
+
+  let create_liste_from_string s =
+        let size = String.length s in
+        let rec aux i current_number =
+            if i = size then
+                if current_number != 0 then
+                    [Integer(current_number)]
+                else
+                    []
+            else
+                let v = (int_of_char s.[i]) - (int_of_char '0') in
+                if v >= 0 && v <= 9 then
+                    aux (i + 1) (current_number * 10 + v)
+                else
+                    let a = if current_number != 0 then [Integer(current_number)] else [] in
+                    let d =
+                    match s.[i] with
+                    | '(' -> Parenthese_open
+                    | ')' -> Parenthese_close
+                    | 't' -> Vrai
+                    | 'f' -> Faux
+                    | '~' -> Neg
+                    | '&' -> Et
+                    | '|' -> Ou
+                    | '>' -> Implique
+                    | '=' -> Equivalence
+                    | _ -> Integer(-1) (* ERROR *)
+                    in
+                    a@(d::(aux (i + 1) 0))
+        in
+        aux 0 0
+
+
+  let read_formule_to_liste input_string = create_liste_from_string (compact_input input_string)
 
 end
+
+
 
 module BDD(VT: VariableType) =
 struct
