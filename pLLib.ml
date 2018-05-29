@@ -49,7 +49,7 @@ module PropositionalLogic(VT: VariableType) = struct
     | _ -> Bin_Op (l, op_and, r)
 
   let rec op_or l r = match (l,r) with
-    | (Boolean true, _) -> Boolean true
+    | (Boolean true, _) -> Boolean true 
     | (_, Boolean true) -> Boolean true
     | (Boolean false, Boolean false) -> Boolean false
     | _ -> Bin_Op (l, op_or, r)
