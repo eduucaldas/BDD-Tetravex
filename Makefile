@@ -5,21 +5,22 @@ all: native byte # profile debug
 clean:
 	$(OCB) -clean
 
-test: sanity
+test:
 	$(OCB) test.native
 
-test_parser: sanity
+main:
+	$(OCB) main.native
+
+tetravex:
+	$(OCB) tetravex.native
+
+test_parser:
 	$(OCB) test_parser.native
 
-profile: sanity
+profile:
 	$(OCB) -tag profile client.native
 
-debug: sanity
+debug:
 	$(OCB) -tag debug client.byte
 
 # check that packages can be found
-sanity:
-	ocamlfind query lwt
-
-test: native
-	echo '[1, 2, "three", {"four": 4}]' | ./client.native
