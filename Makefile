@@ -11,6 +11,9 @@ test:
 main:
 	$(OCB) main.native
 
+ultra_main:
+	$(OCB) ultra_main.native
+
 tetravex:
 	$(OCB) tetravex.native
 
