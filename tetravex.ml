@@ -1,5 +1,4 @@
 
-
 module type Variable = sig
     type t
     val equal: t -> t -> bool
@@ -207,6 +206,8 @@ include Bddtetravex*)
 module Tetravex = 
 	struct
 
+
+
 		(*Carre class
 		  Class with the small squares to be put in the larger grid*)
 		class carre (up:int) (down:int) (left:int) (right:int) (identity:int) =
@@ -312,7 +313,7 @@ module Tetravex =
 
                 method obligeRightCarre_to_belong a b (carre_analised: carre) (liste: carre list) = 
                     match liste with
-                    | [] -> False
+                    | [] -> BDDTetravex.False
                     | t::q ->
                         if t#id = carre_analised#id then (*Checks to see if the next carre is not the analised one*)
                             self#obligeRightCarre_to_belong a b carre_analised q
@@ -324,7 +325,7 @@ module Tetravex =
 
                 method obligeDownCarre_to_belong a b (carre_analised: carre) (liste: carre list) = 
                     match liste with
-                    | [] -> False
+                    | [] -> BDDTetravex.False
                     | t::q ->
                         if t#id = carre_analised#id then
                             self#obligeDownCarre_to_belong a b carre_analised q
@@ -346,7 +347,7 @@ module Tetravex =
                 method uniquelyPlacedIn carre_analised a b = (*TODO*)
                     let rec aux u v =
                         if u > n then
-                            True
+                            BDDTetravex.True
                         else if v > p then
                             aux (u + 1) 1
                         else if (u = a && v = b) then
@@ -369,7 +370,7 @@ module Tetravex =
 
                 method anyOtherCarreInThisGridPositionButCarreAnalised (carre_analised: carre) a b = 
                     let rec aux = function
-                    | [] -> True
+                    | [] -> BDDTetravex.True
                     | t::q -> if t#id = carre_analised#id then aux q
                         else
                             BDDTetravex.andBDDTetravex (BDDTetravex.notBDDTetravex(self#formulePlacement t a b)) (aux q) (*TODO*)
@@ -382,8 +383,8 @@ module Tetravex =
                 *)
 
                 method conditionsCheckToPlaceAnalisedCarreInAB carre_analised a b = 
-                    let row_condition = if a + 1 <= n then self#obligeRightCarre_to_belong a b carre_analised carres_list else True in (* If it is in the last *)
-                    let column_condition = if b + 1 <= p then self#obligeDownCarre_to_belong a b carre_analised carres_list else True in
+                    let row_condition = if a + 1 <= n then self#obligeRightCarre_to_belong a b carre_analised carres_list else BDDTetravex.True in (* If it is in the last *)
+                    let column_condition = if b + 1 <= p then self#obligeDownCarre_to_belong a b carre_analised carres_list else BDDTetravex.True in
                     let v = self#formulePlacement carre_analised a b in (*TODO*)
                     let placed_one_time = self#uniquelyPlacedIn carre_analised a b in
                     let unique_in_this_grid_position = self#anyOtherCarreInThisGridPositionButCarreAnalised carre_analised a b in
@@ -400,7 +401,7 @@ module Tetravex =
                 method conditionsCheckToPlaceAnalisedCarreForAllPositions (carre_analised:carre) =  (*TODO*)
                     let rec aux a b =
                         if a > n then
-                            True
+                            BDDTetravex.True
                         else if b > p then
                             aux (a + 1) 1
                         else
@@ -410,12 +411,12 @@ module Tetravex =
 
                 method existenceTetravex =   	
                     let rec exist a b = function
-                        | [] -> False
+                        | [] -> BDDTetravex.False
                         | t::q -> BDDTetravex.orBDDTetravex(self#formulePlacement t a b)(exist a b q) (*TODO*)
                     in
                     let rec aux a b =
                         if a > n then
-                            True (*Attention Type*)
+                            BDDTetravex.True (*Attention Type*)
                         else if b > p then
                             aux (a + 1) 1
                         else
@@ -425,7 +426,7 @@ module Tetravex =
                 
                 (*TODO*)
                 method toutPlacer = function      
-                    | [] -> True
+                    | [] -> BDDTetravex.True
                     | t::q -> BDDTetravex.andBDDTetravex (self#conditionsCheckToPlaceAnalisedCarreForAllPositions t) (self#toutPlacer q) (*TODO*) 
                 
 

@@ -1,1 +1,3 @@
 <*.ml> or "test_parser.native": package(str)
+<*.ml> or "tetravex.native": package(str)
+<*.ml> or "main.native": package(str)
