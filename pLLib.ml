@@ -13,6 +13,7 @@ sig
   val compare : t -> t -> int
   val equal : t -> t -> bool
   val str : t -> string
+  val to_t : string -> t option
 end
 
 module CharType =
@@ -21,6 +22,9 @@ struct
   let equal c1 c2 = Char.equal c1 c2
   let compare c1 c2 = Char.compare c1 c2
   let str c = Char.escaped c
+  let to_t s = match String.length s with
+    | 1 -> Some s.[0]
+    | _ -> None
 end
 
 
@@ -130,95 +134,184 @@ module PropositionalLogic(VT: VariableType) = struct
     to tokenize the original string
     input = string f_string
     output = compact_f_string
-    equivalence map 
-    original string/tokenized string 
-    
-    " "/"" , it means we take out all spaces 
+    equivalence map
+    original string/tokenized string
+
+    " "/"" , it means we take out all spaces
     true/t
     false/f
     &&/&
     ||/|
     <->/=
     ->/>
-  
-    *)
-  let compact_input f_string = 
+
+  *)
+  let compact_input f_string =
     (*Str.regexp string, gets a string and returns a regexp type corresponding to that string*)
     let regexp_space = Str.regexp " " in
     let regexp_true = Str.regexp "true" in
     let regexp_false = Str.regexp "false" in
     let regexp_AND = Str.regexp "&&" in
-    let regexp_OR = Str.regexp "||" in 
+    let regexp_OR = Str.regexp "||" in
     let regexp_equivalence = Str.regexp "<->" in
     let regexp_implication = Str.regexp "->" in
     let step1 = Str.global_replace regexp_space "" f_string in
-    let step2 = Str.global_replace regexp_true "t" step1 in
-    let step3 = Str.global_replace regexp_false "f" step2 in
+    let step2 = Str.global_replace regexp_true "T" step1 in
+    let step3 = Str.global_replace regexp_false "F" step2 in
     let step4 = Str.global_replace regexp_AND "&" step3 in
     let step5 = Str.global_replace regexp_OR"|" step4 in
     let step6 = Str.global_replace regexp_equivalence "=" step5 in
     Str.global_replace regexp_implication ">" step6
 
-    (*O objetivo no final é criar uma liste de types com o primeiro item tendo a maior priridade. 
-      Daí fica mais suave criar a árvore *)
+  (* The final objective is to create a list of types, with the first item having the greatest priority *)
+  (* Lexic *)
+  type token =
+    | Var_tok of VT.t
+    | Parenthesis_open
+    | Parenthesis_close
+    | True
+    | False
+    | Neg
+    | And
+    | Or
+    | Implies
+    | Equivalence
 
-  type grammaire = 
-        | Integer of int
-        | Parenthese_open
-        | Parenthese_close
-        | Vrai
-        | Faux
-        | Neg
-        | Et
-        | Ou
-        | Implique
-        | Equivalence
-    
-  let print = function
-        | Integer(x) -> string_of_int x
-        | Parenthese_open -> "("
-        | Parenthese_close -> ")"
-        | Vrai -> "true"
-        | Faux -> "false"
-        | Neg -> "~"
-        | Et -> "&&"
-        | Ou -> "||"
-        | Implique -> "->"
-        | Equivalence -> "<->"
+  let token2str = function
+    | Var_tok (x) -> VT.str x
+    | Parenthesis_open -> "( "
+    | Parenthesis_close -> " )"
+    | True -> "true"
+    | False -> "false"
+    | Neg -> "~"
+    | And -> " && "
+    | Or -> " || "
+    | Implies -> " -> "
+    | Equivalence -> " <-> "
+(*
+  let tokenize s =
+    let size = String.length s in
+    let rec aux i current_number =
+      if i = size then
+        if current_number != 0 then
+          [Integer(current_number)]
+        else
+          []
+      else
+        let v = (int_of_char s.[i]) - (int_of_char '0') in
+        if v >= 0 && v <= 9 then
+          aux (i + 1) (current_number * 10 + v)
+        else
+          let a = if current_number != 0 then [Integer(current_number)] else [] in
+          let d =
+            match s.[i] with
+            | '(' -> Parenthesis_open
+            | ')' -> Parenthesis_close
+            | 'T' -> True
+            | 'F' -> False
+            | '~' -> Neg
+            | '&' -> And
+            | '|' -> Or
+            | '>' -> Implies
+            | '=' -> Equivalence
+            | _ -> Integer(-1) (* ERROR *)
+          in
+          a@(d::(aux (i + 1) 0))
+    in
+    aux 0 0
+       *)
 
-  let create_liste_from_string s =
-        let size = String.length s in
-        let rec aux i current_number =
-            if i = size then
-                if current_number != 0 then
-                    [Integer(current_number)]
-                else
-                    []
-            else
-                let v = (int_of_char s.[i]) - (int_of_char '0') in
-                if v >= 0 && v <= 9 then
-                    aux (i + 1) (current_number * 10 + v)
-                else
-                    let a = if current_number != 0 then [Integer(current_number)] else [] in
-                    let d =
-                    match s.[i] with
-                    | '(' -> Parenthese_open
-                    | ')' -> Parenthese_close
-                    | 't' -> Vrai
-                    | 'f' -> Faux
-                    | '~' -> Neg
-                    | '&' -> Et
-                    | '|' -> Ou
-                    | '>' -> Implique
-                    | '=' -> Equivalence
-                    | _ -> Integer(-1) (* ERROR *)
-                    in
-                    a@(d::(aux (i + 1) 0))
-        in
-        aux 0 0
+  let not_var2token c =
+    match c with
+    | '(' -> Some Parenthesis_open
+    | ')' -> Some Parenthesis_close
+    | 'T' -> Some True
+    | 'F' -> Some False
+    | '~' -> Some Neg
+    | '&' -> Some And
+    | '|' -> Some Or
+    | '>' -> Some Implies
+    | '=' -> Some Equivalence
+    | _ -> None
 
+  let var2token s =
+    match VT.to_t s with
+    | Some var -> Some (Var_tok (var))
+    | _ -> None
 
-  let read_formule_to_liste input_string = create_liste_from_string (compact_input input_string)
+  exception Invalid_variable of string
+  exception Invalid_formula of string
+
+  (* turns string into list of tokens *)
+  (* Many many things to test, better assume that the input is ok *)
+  let tokenize s =
+    let size = String.length s in
+    let isolate_var begin_var =
+      let rec isolate_var_rec end_var =
+        if end_var = size then (end_var, String.sub s begin_var (end_var-begin_var)) else
+          match s.[end_var] with
+          | ')' | '&' | '|' | '>' | '=' -> (end_var, String.sub s begin_var (end_var - begin_var))
+          | 'T' | 'F' | '~' | '('  -> raise (Invalid_formula s)
+          | _ -> isolate_var_rec (end_var + 1)
+      in
+      isolate_var_rec (begin_var+1)
+    in
+    let rec tokenize_rec i =
+      if i = size then [] else
+        match not_var2token s.[i] with
+        | Some tok -> tok::tokenize_rec (i+1)
+        | None ->
+          let (new_i, var_str) = (isolate_var i) in
+          match var2token var_str with
+          | Some tok -> tok::tokenize_rec new_i
+          | None -> raise (Invalid_variable var_str)
+    in
+    tokenize_rec 0
+
+  let tokenize_input input_string = tokenize (compact_input input_string)
+
+  (* Auxiliary *)
+  let flip f a b = f b a
+  (* Auxiliary *)
+  let comp f g x = f (g x)
+
+  (* while iterating through list of tokens one could have an operator or an atom (Variable, Boolean)
+     To have an elegant algorithm we created an iterator, that iterates from left to right on the list
+     And keeps the resulting formula to the present moment:
+     It may be a constant iterator, corresponding to a complete formule
+     Or an operating one, corresponding to the application of an operation taking the left formule
+  *)
+  let constIt base a = base
+  let idIt form = form
+  let get_form iterator = iterator (Boolean true)
+
+  let formule_of_tokens list_tokens =
+    let buffer = Stack.create () in
+    List.iter ((flip Stack.push) buffer) list_tokens;
+    let rec form_of_tok iterator =
+      if Stack.is_empty buffer then iterator else
+        let curr = Stack.pop buffer in
+        if curr = Parenthesis_close then iterator else
+          let new_it =
+            (match curr with
+             | Parenthesis_open -> (comp iterator (form_of_tok idIt))
+             | Parenthesis_close -> assert false
+             | Var_tok v -> comp iterator (constIt (Variable v))
+             | True -> comp iterator (constIt (Boolean true))
+             | False -> comp iterator (constIt (Boolean false))
+             | Neg -> comp iterator neg
+             | And -> op_and (get_form iterator)
+             | Or -> op_and (get_form iterator)
+             | Implies -> arrow (get_form iterator)
+             | Equivalence -> double_arrow (get_form iterator)
+            )
+          in
+          form_of_tok new_it
+    in
+    get_form (form_of_tok idIt)
+
+  let formule_of_input input = formule_of_tokens (tokenize_input input)
+
 
 end
 
