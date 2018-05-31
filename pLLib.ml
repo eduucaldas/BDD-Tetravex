@@ -1,4 +1,3 @@
-
 module type OrderedType =
 sig
   type t
@@ -27,6 +26,15 @@ struct
     | _ -> None
 end
 
+module IntegerType =
+struct
+  type t = int
+  let equal c1 c2 = (c1 = c2)
+  let compare c1 c2 = (c1 - c2)
+  let str c = string_of_int c
+  let to_t s = int_of_string_opt s
+end
+
 
 module PropositionalLogic(VT: VariableType) = struct
   (*Fundamental to understand*)
@@ -36,31 +44,34 @@ module PropositionalLogic(VT: VariableType) = struct
     | Bin_Op of formule * (formule -> formule -> formule) * formule
     | Un_op of (formule -> formule) * formule
 
+  let rec neg f = match f with
+    | Boolean bf -> Boolean (not bf)
+    | Un_op (neg, g) -> g
+    | _ -> Un_op (neg, f)
+
   let rec arrow l r = match (l,r) with
-    | (Boolean false, _) -> Boolean true
-    | (_, Boolean true) -> Boolean true
-    | (Boolean true, Boolean false) -> Boolean false
+    | (Boolean false, _) | (_, Boolean true) -> Boolean true
+    | (Boolean true, k)  -> k
+    | (k, Boolean false) -> (neg k)
     | _ -> Bin_Op (l, arrow, r)
 
-  let double_arrow l r = match (l,r) with
-    | (Boolean l, Boolean r) -> Boolean (l=r)
-    | _ -> Bin_Op (l, arrow, r)
+  let rec double_arrow l r = match (l,r) with
+    | (Boolean true, k) | (k, Boolean true) -> k
+    | (Boolean false, k) | (k, Boolean false) -> (neg k)
+    | (Un_op (neg, k), _) | (_, Un_op (neg, k)) -> Un_op (neg, double_arrow k r)
+    | _ -> Bin_Op (l, double_arrow, r)
 
   let rec op_and l r = match (l,r) with
-    | (Boolean false, _) -> Boolean false
-    | (_, Boolean false) -> Boolean false
-    | (Boolean true, Boolean true) -> Boolean true
+    | (Boolean false, _) | (_, Boolean false) -> Boolean false
+    | (Boolean true, k) | (k, Boolean true) -> k
     | _ -> Bin_Op (l, op_and, r)
 
   let rec op_or l r = match (l,r) with
-    | (Boolean true, _) -> Boolean true 
-    | (_, Boolean true) -> Boolean true
-    | (Boolean false, Boolean false) -> Boolean false
+    | (_, Boolean true) | (Boolean true, _) -> Boolean true
+    | (Boolean false, k) | (k, Boolean false) -> k
     | _ -> Bin_Op (l, op_or, r)
 
-  let rec neg f = match f with
-    | Boolean bf -> Boolean (not bf)
-    | _ -> Un_op (neg, f)
+
 
   (*Backbone function:
     evaluates the formula with 'var' = true and false and returns the triplet ('var', formula with true, -//- with false)
@@ -130,6 +141,8 @@ module PropositionalLogic(VT: VariableType) = struct
     | Boolean b -> b
     | _ -> raise PartialValuation
 
+  (* ################### LEXING #####################*)
+
   (*Function to clean all the spaces and transform the symbols into a one char symbol in order
     to tokenize the original string
     input = string f_string
@@ -144,7 +157,7 @@ module PropositionalLogic(VT: VariableType) = struct
     ||/|
     <->/=
     ->/>
-
+    TEST: OK
   *)
   let compact_input f_string =
     (*Str.regexp string, gets a string and returns a regexp type corresponding to that string*)
@@ -181,45 +194,14 @@ module PropositionalLogic(VT: VariableType) = struct
     | Var_tok (x) -> VT.str x
     | Parenthesis_open -> "( "
     | Parenthesis_close -> " )"
-    | True -> "true"
-    | False -> "false"
-    | Neg -> "~"
-    | And -> " && "
-    | Or -> " || "
-    | Implies -> " -> "
-    | Equivalence -> " <-> "
-(*
-  let tokenize s =
-    let size = String.length s in
-    let rec aux i current_number =
-      if i = size then
-        if current_number != 0 then
-          [Integer(current_number)]
-        else
-          []
-      else
-        let v = (int_of_char s.[i]) - (int_of_char '0') in
-        if v >= 0 && v <= 9 then
-          aux (i + 1) (current_number * 10 + v)
-        else
-          let a = if current_number != 0 then [Integer(current_number)] else [] in
-          let d =
-            match s.[i] with
-            | '(' -> Parenthesis_open
-            | ')' -> Parenthesis_close
-            | 'T' -> True
-            | 'F' -> False
-            | '~' -> Neg
-            | '&' -> And
-            | '|' -> Or
-            | '>' -> Implies
-            | '=' -> Equivalence
-            | _ -> Integer(-1) (* ERROR *)
-          in
-          a@(d::(aux (i + 1) 0))
-    in
-    aux 0 0
-       *)
+    | True -> "True"
+    | False -> "False"
+    | Neg -> "not "
+    | And -> " A "
+    | Or -> " V "
+    | Implies -> " => "
+    | Equivalence -> " <=> "
+
 
   let not_var2token c =
     match c with
@@ -268,13 +250,17 @@ module PropositionalLogic(VT: VariableType) = struct
     in
     tokenize_rec 0
 
-  let tokenize_input input_string = tokenize (compact_input input_string)
+  let tokenize_str input_string = tokenize (compact_input input_string)
 
-  (* Auxiliary *)
+  let rec print_tokenized lt = match lt with
+    | [] -> Printf.printf "\n"
+    | h::t -> Printf.printf "%s" (token2str h); print_tokenized t
+  (*#################################################*)
+  (* Auxiliary functions*)
   let flip f a b = f b a
-  (* Auxiliary *)
   let comp f g x = f (g x)
 
+  (* #####################PARSING##################### *)
   (* while iterating through list of tokens one could have an operator or an atom (Variable, Boolean)
      To have an elegant algorithm we created an iterator, that iterates from left to right on the list
      And keeps the resulting formula to the present moment:
@@ -285,12 +271,13 @@ module PropositionalLogic(VT: VariableType) = struct
   let idIt form = form
   let get_form iterator = iterator (Boolean true)
 
+
   let formule_of_tokens list_tokens =
-    let buffer = Stack.create () in
-    List.iter ((flip Stack.push) buffer) list_tokens;
+    let buffer = Queue.create () in
+    List.iter ((flip Queue.push) buffer) list_tokens;
     let rec form_of_tok iterator =
-      if Stack.is_empty buffer then iterator else
-        let curr = Stack.pop buffer in
+      if Queue.is_empty buffer then iterator else
+        let curr = Queue.pop buffer in
         if curr = Parenthesis_close then iterator else
           let new_it =
             (match curr with
@@ -301,7 +288,7 @@ module PropositionalLogic(VT: VariableType) = struct
              | False -> comp iterator (constIt (Boolean false))
              | Neg -> comp iterator neg
              | And -> op_and (get_form iterator)
-             | Or -> op_and (get_form iterator)
+             | Or -> op_or (get_form iterator)
              | Implies -> arrow (get_form iterator)
              | Equivalence -> double_arrow (get_form iterator)
             )
@@ -310,9 +297,64 @@ module PropositionalLogic(VT: VariableType) = struct
     in
     get_form (form_of_tok idIt)
 
-  let formule_of_input input = formule_of_tokens (tokenize_input input)
+(*
+  type expression =
+    | Tok of token
+    | Formule of formule
 
 
+  let op2fun op =
+    match op with
+    | And -> op_and
+    | Or -> op_or
+    | And -> arrow
+    | Or -> op_or
+
+  let rec formule_of_tokens_expr list_tokens =
+    let rec form_of_tok pr =
+      let atom2formule atom =
+        match atom with
+        | True -> Some (Boolean true)
+        | False -> Some (Boolean false)
+        | Var_tok v -> Some (Variable v)
+        | Parenthesis_open -> form_of_tok None
+        | _ -> assert false
+      in
+      let op2formule op l r =
+
+        match op with
+        | And ->
+        | Or -> expr2
+        | And -> expr
+        | Or -> expr2
+
+
+                  if Queue.is_empty buffer then pr else
+                    let curr = Queue.pop buffer in
+                    match curr with
+                    | Parenthesis_open | Var_tok _ | True | False ->  form_of_tok (atom2formule curr)
+                    | Parenthesis_close -> pr
+                    | Neg -> (
+                        let next = Queue.pop buffer in
+                        Un_op (neg, atom2formule next)
+                      )
+                    | And | Or | Implies | Equivalence-> (
+
+                      )
+
+
+      in
+      form_of_tok new_it
+    in
+    get_form (form_of_tok idIt)
+ *)
+  let formule_of_str str = formule_of_tokens (tokenize_str str)
+
+  let formule_of_input () =
+    let raw_str = read_line () in
+    formule_of_str raw_str
+
+  (* ############################################### *)
 end
 
 
@@ -370,7 +412,7 @@ struct
 
   (* compress the BDD, by turning it into a graph, to keep from having the same subtrees over and over *)
   let compress dec_tree =
-    let found_trees = Hashtbl.create 54 in
+    let found_trees = Hashtbl.create 5000 in
     let f = Leaf false in let t = Leaf true in
     let rec compress_rec dt =
       match dt with
@@ -427,3 +469,35 @@ struct
     | Some l -> List.iter print_pair l
 
 end
+(*
+  let tokenize s =
+    let size = String.length s in
+    let rec aux i current_number =
+      if i = size then
+        if current_number != 0 then
+          [Integer(current_number)]
+        else
+          []
+      else
+        let v = (int_of_char s.[i]) - (int_of_char '0') in
+        if v >= 0 && v <= 9 then
+          aux (i + 1) (current_number * 10 + v)
+        else
+          let a = if current_number != 0 then [Integer(current_number)] else [] in
+          let d =
+            match s.[i] with
+            | '(' -> Parenthesis_open
+            | ')' -> Parenthesis_close
+            | 'T' -> True
+            | 'F' -> False
+            | '~' -> Neg
+            | '&' -> And
+            | '|' -> Or
+            | '>' -> Implies
+            | '=' -> Equivalence
+            | _ -> Integer(-1) (* ERROR *)
+          in
+          a@(d::(aux (i + 1) 0))
+    in
+    aux 0 0
+       *)
