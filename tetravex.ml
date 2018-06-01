@@ -1,4 +1,6 @@
 
+(*************************************** Définitions initiales***********************************)
+
 module type Variable = sig
     type t
     val equal: t -> t -> bool
@@ -53,14 +55,14 @@ struct
         
     end
   
-  module HTBDDdatabse = Hashtbl.Make(HashNodeStructure)
+  module HTBDDdatabase = Hashtbl.Make(HashNodeStructure)
 
   (*We ramdonly choose one start id number
     At each Node creation, the counter will go up every time we add a Node in the 
     HashTable. The HashTable also will grow if the number of Nodes grow and overcome 100
   *)
   let currID = ref 2016
-  let nodeSet  = HTBDDdatabse.create 100  
+  let nodeSet  = HTBDDdatabase.create 100  
 
   let addNode value bddLeft bddRight = 
     let idL = getID bddLeft in
@@ -69,12 +71,12 @@ struct
     then bddLeft
     else
       try
-        HTBDDdatabse.find nodeSet (value, idL, idR)
+        HTBDDdatabase.find nodeSet (value, idL, idR)
       with Not_found -> (*If the bdd was not created yet, we add him in the HashTable*)
         let newID = !currID
         in currID := newID + 1;
         let newNode = BddNode(newID,value,bddLeft,bddRight)
-        in HTBDDdatabse.add nodeSet (value, idL, idR) newNode; 
+        in HTBDDdatabase.add nodeSet (value, idL, idR) newNode; 
         newNode
 
   (******************************Hashtable for relations between BDDs***********************************)
@@ -344,7 +346,7 @@ module Tetravex =
 
                 *)
 
-                method uniquelyPlacedIn carre_analised a b = (*TODO*)
+                method uniquelyPlacedIn carre_analised a b = 
                     let rec aux u v =
                         if u > n then
                             BDDTetravex.True
@@ -398,7 +400,7 @@ module Tetravex =
 
 
 
-                method conditionsCheckToPlaceAnalisedCarreForAllPositions (carre_analised:carre) =  (*TODO*)
+                method conditionsCheckToPlaceAnalisedCarreForAllPositions (carre_analised:carre) =  
                     let rec aux a b =
                         if a > n then
                             BDDTetravex.True
