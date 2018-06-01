@@ -250,6 +250,7 @@ module PropositionalLogic(VT: VariableType) = struct
     in
     tokenize_rec 0
 
+  (* string to list of tokes *)
   let tokenize_str input_string = tokenize (compact_input input_string)
 
   let rec print_tokenized lt = match lt with
@@ -261,94 +262,121 @@ module PropositionalLogic(VT: VariableType) = struct
   let comp f g x = f (g x)
 
   (* #####################PARSING##################### *)
-  (* while iterating through list of tokens one could have an operator or an atom (Variable, Boolean)
-     To have an elegant algorithm we created an iterator, that iterates from left to right on the list
-     And keeps the resulting formula to the present moment:
-     It may be a constant iterator, corresponding to a complete formule
-     Or an operating one, corresponding to the application of an operation taking the left formule
-  *)
-  let constIt base a = base
-  let idIt form = form
-  let get_form iterator = iterator (Boolean true)
 
 
-  let formule_of_tokens list_tokens =
-    let buffer = Queue.create () in
-    List.iter ((flip Queue.push) buffer) list_tokens;
-    let rec form_of_tok iterator =
-      if Queue.is_empty buffer then iterator else
-        let curr = Queue.pop buffer in
-        if curr = Parenthesis_close then iterator else
-          let new_it =
-            (match curr with
-             | Parenthesis_open -> (comp iterator (form_of_tok idIt))
-             | Parenthesis_close -> assert false
-             | Var_tok v -> comp iterator (constIt (Variable v))
-             | True -> comp iterator (constIt (Boolean true))
-             | False -> comp iterator (constIt (Boolean false))
-             | Neg -> comp iterator neg
-             | And -> op_and (get_form iterator)
-             | Or -> op_or (get_form iterator)
-             | Implies -> arrow (get_form iterator)
-             | Equivalence -> double_arrow (get_form iterator)
-            )
-          in
-          form_of_tok new_it
-    in
-    get_form (form_of_tok idIt)
-
-(*
+  (* Parsing by token *)
+  (* We interpret each kind of token in a step, following precedency *)
+  (* Expression can be an uninterpreted token or an interpreted formule *)
   type expression =
     | Tok of token
     | Formule of formule
 
+  (* First: interpret atoms!
+     atom =
+     | Boolean
+     | Variable
+     | Formule
+  *)
+  (* if atom then interpret it to formule *)
+  let rm_atom atom =
+    match atom with
+    | Tok True -> Formule (Boolean true)
+    | Tok False -> Formule (Boolean false)
+    | Tok (Var_tok v) -> Formule (Variable v)
+    | _ -> atom
 
+  let interpret_atom l_expr =
+    List.map rm_atom l_expr
+
+  (* Second: interpret negations *)
+  let rm_neg r =
+    match r with
+    | Formule f  -> Formule (neg f)
+    | _ -> assert false
+
+  let rec interpret_neg l_expr =
+    match l_expr with
+    | [] -> []
+    | h::t -> let l = h::(interpret_neg t) in
+      match l with
+      | (Tok Neg)::r::tt -> (rm_neg r)::tt
+      | _ -> l
+
+
+  (* Interpreting operators *)
+  (* token to corresponding formule constructor *)
   let op2fun op =
     match op with
     | And -> op_and
     | Or -> op_or
-    | And -> arrow
-    | Or -> op_or
+    | Implies -> arrow
+    | Equivalence -> double_arrow
+    | _ -> assert false
 
-  let rec formule_of_tokens_expr list_tokens =
-    let rec form_of_tok pr =
-      let atom2formule atom =
-        match atom with
-        | True -> Some (Boolean true)
-        | False -> Some (Boolean false)
-        | Var_tok v -> Some (Variable v)
-        | Parenthesis_open -> form_of_tok None
-        | _ -> assert false
-      in
-      let op2formule op l r =
+  let rm_op op l r =
+    match l,r with
+    | Formule l, Formule r -> Formule ((op2fun op) l r)
+    | _ -> assert false
 
-        match op with
-        | And ->
-        | Or -> expr2
-        | And -> expr
-        | Or -> expr2
-
-
-                  if Queue.is_empty buffer then pr else
-                    let curr = Queue.pop buffer in
-                    match curr with
-                    | Parenthesis_open | Var_tok _ | True | False ->  form_of_tok (atom2formule curr)
-                    | Parenthesis_close -> pr
-                    | Neg -> (
-                        let next = Queue.pop buffer in
-                        Un_op (neg, atom2formule next)
-                      )
-                    | And | Or | Implies | Equivalence-> (
-
-                      )
-
-
-      in
-      form_of_tok new_it
+  (* interprets all operators op in a list of tokens *)
+  let interpret_op op l_expr =
+    let rec rm_all_op le =
+      match le with
+      | [] | _::[] | _::_::[] -> le
+      | l::c::r::t ->
+        match l,c,r with
+        | (_, Tok maybe_op, _) when maybe_op = op -> rm_all_op ((rm_op op l r)::t)
+        | _ -> l::(rm_all_op (c::r::t))
     in
-    get_form (form_of_tok idIt)
- *)
-  let formule_of_str str = formule_of_tokens (tokenize_str str)
+    rm_all_op l_expr
+
+  (* Same as last but right associative, as the arrow is *)
+  let rec interpret_arrow l_expr =
+    match l_expr with
+    | [] | _::[] -> l_expr
+    | l::c::t ->
+      let nt = interpret_arrow t in
+      match l, c, nt with
+      | (_, Tok maybe_op, r::ntt) when maybe_op = Implies ->
+        (rm_op Implies l r)::ntt
+      | _ -> l::c::nt
+
+  (* Interprets binary operators in order of precedency *)
+  let interpret_all_op l_expr =
+    let no_and = interpret_op And l_expr in
+    let no_or = interpret_op Or no_and in
+    let no_arrow = interpret_arrow no_or in
+    let no_eq = interpret_op Equivalence no_arrow in
+    no_eq
+
+  (* Interpret simple expression, i.e. no parenthesis *)
+  let interpret_simple l_expr =
+    let no_atom = interpret_atom l_expr in
+    let no_neg = interpret_neg no_atom in
+    match interpret_all_op no_neg with
+    | [f] -> f
+    | _ -> assert false
+
+  (* Interpret complex expression, i.e. with parenthesis *)
+  let interpret_complex l_tok =
+    (* reduce recursively solves all parenthesis returning their corresponding formula *)
+    let rec reduce head tail =
+      match tail with
+      | [] -> List.rev head
+      | h::t -> (
+          match h with
+          | Tok Parenthesis_open -> reduce head (reduce [] t)
+          | Tok Parenthesis_close -> (interpret_simple (List.rev head))::t
+          | _ -> reduce (h::head) t
+        )
+    in
+    let tok2expr tok = Tok (tok) in
+    let l_expr = List.map tok2expr l_tok in
+    match interpret_simple (reduce [] l_expr) with
+    | Formule f -> f
+    | _ -> assert false
+
+  let formule_of_str str = interpret_complex (tokenize_str str)
 
   let formule_of_input () =
     let raw_str = read_line () in
@@ -469,35 +497,41 @@ struct
     | Some l -> List.iter print_pair l
 
 end
-(*
-  let tokenize s =
-    let size = String.length s in
-    let rec aux i current_number =
-      if i = size then
-        if current_number != 0 then
-          [Integer(current_number)]
-        else
-          []
-      else
-        let v = (int_of_char s.[i]) - (int_of_char '0') in
-        if v >= 0 && v <= 9 then
-          aux (i + 1) (current_number * 10 + v)
-        else
-          let a = if current_number != 0 then [Integer(current_number)] else [] in
-          let d =
-            match s.[i] with
-            | '(' -> Parenthesis_open
-            | ')' -> Parenthesis_close
-            | 'T' -> True
-            | 'F' -> False
-            | '~' -> Neg
-            | '&' -> And
-            | '|' -> Or
-            | '>' -> Implies
-            | '=' -> Equivalence
-            | _ -> Integer(-1) (* ERROR *)
-          in
-          a@(d::(aux (i + 1) 0))
-    in
-    aux 0 0
-       *)
+
+
+(*   (* while iterating through list of tokens one could have an operator or an atom (Variable, Boolean)
+       To have an elegant algorithm we created an iterator, that iterates from left to right on the list
+       And keeps the resulting formula to the present moment:
+       It may be a constant iterator, corresponding to a complete formule
+       Or an operating one, corresponding to the application of an operation taking the left formule
+    *)
+       let constIt base a = base
+       let idIt form = form
+       let get_form iterator = iterator (Boolean true)
+
+
+       let formule_of_tokens list_tokens =
+       let buffer = Queue.create () in
+       List.iter ((flip Queue.push) buffer) list_tokens;
+       let rec form_of_tok iterator =
+        if Queue.is_empty buffer then iterator else
+          let curr = Queue.pop buffer in
+          if curr = Parenthesis_close then iterator else
+            let new_it =
+              (match curr with
+               | Parenthesis_open -> (comp iterator (form_of_tok idIt))
+               | Parenthesis_close -> assert false
+               | Var_tok v -> comp iterator (constIt (Variable v))
+               | True -> comp iterator (constIt (Boolean true))
+               | False -> comp iterator (constIt (Boolean false))
+               | Neg -> comp iterator neg
+               | And -> op_and (get_form iterator)
+               | Or -> op_or (get_form iterator)
+               | Implies -> arrow (get_form iterator)
+               | Equivalence -> double_arrow (get_form iterator)
+              )
+            in
+            form_of_tok new_it
+       in
+       get_form (form_of_tok idIt)
+*)

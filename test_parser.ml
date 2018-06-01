@@ -63,7 +63,24 @@ let () =
   (* Variables! *)
 
   (* Precedency! *)
-  (* New iterator idea! *)
+  let formComplex1 = CPL.formule_of_str ("a && false||a && true") in
+  assert (CPL.valuation_order formComplex1 ['a', true] = true);
+  assert (CPL.valuation_order formComplex1 ['a', false] = false);
+  let formComplex2 = CPL.formule_of_str ("a -> false&&b <-> true") in
+  assert ((CPL.valuation_order formComplex2 ['a', false; 'b', true]) = true);
+  let formComplex3 = CPL.formule_of_str ("~b && c") in
+  assert (CPL.valuation_order formComplex3 ['b', false; 'c', false] = false);
+  let formComplex4 = CPL.formule_of_str ("a || ~~~a") in
+  assert (CPL.valuation_random (CPL.simplify formComplex4) [true] = true);
+  let formComplex5 = CPL.formule_of_str ("true -> true -> false") in
+  assert (CPL.valuation_random (CPL.simplify formComplex5) [] = false);
+  let formComplex6 = CPL.formule_of_str ("false <-> false -> true") in
+  assert (CPL.valuation_random (CPL.simplify formComplex6) [] = false);
+  let formComplex7 = CPL.formule_of_str ("(false <-> false) && ~(false || (true -> true -> (true <-> true && false)))") in
+  assert (CPL.valuation_random (CPL.simplify formComplex7) [] = true);
+
+
+
   (* Precedency! *)
 
 
