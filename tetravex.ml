@@ -296,8 +296,8 @@ module Tetravex =
                 (*8888888888888888888888888888888888888888888888888888888888888888888888*)
                 (* returns the BDD with the value *)
 
-                method formulePlacement dom a b = (*TODO*)
-                    BDDTetravex.addNode ((string_of_int b) ^ "," ^ (string_of_int a) ^ ":" ^ (string_of_int dom#id)) False True
+                method formSetter carre a b = (*TODO*)
+                    BDDTetravex.addNode ((string_of_int b) ^ "," ^ (string_of_int a) ^ ":" ^ (string_of_int carre#id)) BDDTetravex.False BDDTetravex.True
                 (*
 					This method checks the possible carres at the right side of a certain position 
 
@@ -318,8 +318,8 @@ module Tetravex =
                         if t#id = carre_analised#id then (*Checks to see if the next carre is not the analised one*)
                             self#obligeRightCarre_to_belong a b carre_analised q
                         else if (t#get_left = carre_analised#get_right) then (*If the next carre cand be put at the right side of the analised one, we add him in the result*)
-                            let f = self#formulePlacement t (a + 1) b in (*TODO*)
-                            BDDTetravex.orBDDTetravex(f) (self#obligeRightCarre_to_belong a b carre_analised q) (*TODO*)
+                            let f = self#formSetter t (a + 1) b in (*TODO*)
+                            BDDTetravex.orBDDTetravex f (self#obligeRightCarre_to_belong a b carre_analised q) 
                         else
                             self#obligeRightCarre_to_belong a b carre_analised q
 
@@ -330,8 +330,8 @@ module Tetravex =
                         if t#id = carre_analised#id then
                             self#obligeDownCarre_to_belong a b carre_analised q
                         else if (t#get_up = carre_analised#get_down) then
-                            let f = self#formulePlacement t a (b + 1) in (*TODO*)
-                            BDDTetravex.orBDDTetravex f (self#obligeDownCarre_to_belong a b carre_analised q) (*TODO*)
+                            let f = self#formSetter t a (b + 1) in
+                            BDDTetravex.orBDDTetravex f (self#obligeDownCarre_to_belong a b carre_analised q) 
                         else
                             self#obligeDownCarre_to_belong a b carre_analised q 
                 (*
@@ -353,7 +353,7 @@ module Tetravex =
                         else if (u = a && v = b) then
                             aux u (v + 1)
                         else
-                            BDDTetravex.andBDDTetravex (BDDTetravex.notBDDTetravex(self#formulePlacement carre_analised u v))( aux u (v + 1)) (*TODO*)
+                            BDDTetravex.andBDDTetravex (BDDTetravex.notBDDTetravex(self#formSetter carre_analised u v))( aux u (v + 1)) (*TODO*)
                     in
                     aux 1 1
 
@@ -373,7 +373,7 @@ module Tetravex =
                     | [] -> BDDTetravex.True
                     | t::q -> if t#id = carre_analised#id then aux q
                         else
-                            BDDTetravex.andBDDTetravex (BDDTetravex.notBDDTetravex(self#formulePlacement t a b)) (aux q) (*TODO*)
+                            BDDTetravex.andBDDTetravex (BDDTetravex.notBDDTetravex(self#formSetter t a b)) (aux q) (*TODO*)
                     in
                     aux carres_list
 
@@ -385,7 +385,7 @@ module Tetravex =
                 method conditionsCheckToPlaceAnalisedCarreInAB carre_analised a b = 
                     let row_condition = if a + 1 <= n then self#obligeRightCarre_to_belong a b carre_analised carres_list else BDDTetravex.True in (* If it is in the last *)
                     let column_condition = if b + 1 <= p then self#obligeDownCarre_to_belong a b carre_analised carres_list else BDDTetravex.True in
-                    let v = self#formulePlacement carre_analised a b in (*TODO*)
+                    let v = self#formSetter carre_analised a b in (*TODO*)
                     let placed_one_time = self#uniquelyPlacedIn carre_analised a b in
                     let unique_in_this_grid_position = self#anyOtherCarreInThisGridPositionButCarreAnalised carre_analised a b in
                     BDDTetravex.bdd1Impliesbdd2BDD v (BDDTetravex.andBDDTetravex(BDDTetravex.andBDDTetravex(BDDTetravex.andBDDTetravex row_condition column_condition) placed_one_time) unique_in_this_grid_position) (*TODO*)
@@ -412,7 +412,7 @@ module Tetravex =
                 method existenceTetravex =   	
                     let rec exist a b = function
                         | [] -> BDDTetravex.False
-                        | t::q -> BDDTetravex.orBDDTetravex(self#formulePlacement t a b)(exist a b q) (*TODO*)
+                        | t::q -> BDDTetravex.orBDDTetravex(self#formSetter t a b)(exist a b q) (*TODO*)
                     in
                     let rec aux a b =
                         if a > n then
