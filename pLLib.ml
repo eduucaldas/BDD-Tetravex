@@ -18,7 +18,7 @@ end
 module CharType =
 struct
   type t = char
-  let equal c1 c2 = Char.equal c1 c2
+  let equal c1 c2 = (c1 = c2) 
   let compare c1 c2 = Char.compare c1 c2
   let str c = Char.escaped c
   let to_t s = match String.length s with
