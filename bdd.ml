@@ -1,42 +1,41 @@
 open PLLib
+open BDT
+open VariableInterfaces
 module Type = CharType
 module PL = PropositionalLogic(Type)
-module DD = BDD(Type)
+module DT = BDT(Type)
 include Tetravex
 
 let readTetravex () =
   let rec help i q=
     try
-      let lign = read_line () in
-      let l = Str.split( Str.regexp " ") lign in
-      let a::b::c::d::u = l in
-      help (i+1) ((new Tetravex.carre (int_of_string a) (int_of_string b) (int_of_string c) (int_of_string d) i)::q)
+      let s = read_line () in
+      let a, b, c, d = Scanf.sscanf s "%d %d %d %d " (fun a b c d -> (a, b, c, d)) in
+      help (i+1) ((new Tetravex.carre a b c d i)::q)
     with End_of_file -> q
-  in help 0 []
+  in
+  help 0 []
 
 let dump () =
   let formule = PL.formule_of_input () in
-  let bdd = DD.compress (DD.create_random formule) in
-  DD.print bdd;
+  let bdd = DT.compress (DT.create_random formule) in
+  DT.print bdd;
   exit 0
 
 let valid () =
   let formule = PL.formule_of_input () in
-  let bdd = DD.compress (DD.create_random formule) in
-  if (DD.validity bdd) then exit 0 else exit (-1)
+  let bdd = DT.compress (DT.create_random formule) in
+  if (DT.validity bdd) then exit 0 else exit (-1)
 
 let satisfiable () =
   let formule = PL.formule_of_input () in
-  let bdd = DD.compress (DD.create_random formule) in
-  DD.print_satifiability bdd;
+  let bdd = DT.compress (DT.create_random formule) in
+  DT.print_satifiability bdd;
   exit 0
 
 let tetravex () =
-  let lig1 = read_line () in
-  let lis1 = Str.split (Str.regexp " ") lig1 in
-  let n::q = lis1 in let p::q = lis1 in
-  let n = int_of_string n in
-  let p = int_of_string p in
+  let s = read_line () in
+  let n, p = Scanf.sscanf s "%d %d" (fun a b -> (a, b)) in
   let q = readTetravex () in
   let t = new Tetravex.tetravex n p q in
   let solu = t#solve () in
