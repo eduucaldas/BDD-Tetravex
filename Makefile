@@ -11,21 +11,19 @@ test:
 main:
 	$(OCB) main.native
 
+ultra_main:
+	$(OCB) ultra_main.native
+
 tetravex:
 	$(OCB) tetravex.native
 
-test_parser: sanity
+test_parser:
 	$(OCB) test_parser.native
 
-profile: sanity
+profile:
 	$(OCB) -tag profile client.native
 
-debug: sanity
+debug:
 	$(OCB) -tag debug client.byte
 
-
-
 # check that packages can be found
-
-
-
