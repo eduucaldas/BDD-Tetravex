@@ -123,16 +123,16 @@ struct
 (***************************************AND relation between BDDs***********************************)        
     
       
-    let rec andBDDTetravex bdd1 bdd2 =
-      match bdd1, bdd2 with
-      |True, _ -> bdd2
+    let rec andBDDTetravex  bddLeft  bddRight =
+      match  bddLeft,  bddRight with
+      |True, _ ->  bddRight
       |False, _ -> False
-      |_, True -> bdd1
+      |_, True ->  bddLeft
       |_, False -> False
       |BddNode(id1, v1, g1, d1), BddNode(id2, v2, g2, d2) ->
          if id1 = id2
          then
-           bdd1
+            bddLeft
          else
            let key = if id1 < id2 then (id1, id2) else (id2, id1)
            in try HTRelationbetweenBDDsDatabase.find andContainer key
@@ -143,9 +143,9 @@ struct
                      addNode v1 (andBDDTetravex g1 g2) (andBDDTetravex d1 d2)
                    else if v1 < v2
                    then
-                     addNode v1 (andBDDTetravex g1 bdd2) (andBDDTetravex d1 bdd2)
+                     addNode v1 (andBDDTetravex g1  bddRight) (andBDDTetravex d1  bddRight)
                    else
-                     addNode v2 (andBDDTetravex bdd1 g2) (andBDDTetravex bdd1 d2)
+                     addNode v2 (andBDDTetravex  bddLeft g2) (andBDDTetravex  bddLeft d2)
                  in HTRelationbetweenBDDsDatabase.add andContainer key newNode;
                  newNode
 
@@ -154,16 +154,16 @@ struct
 
     
       
-    let rec orBDDTetravex bdd1 bdd2 =
-      match bdd1, bdd2 with
+    let rec orBDDTetravex  bddLeft  bddRight =
+      match  bddLeft,  bddRight with
       |True, _ -> True
-      |False, _ -> bdd2
+      |False, _ ->  bddRight
       |_, True -> True
-      |_, False -> bdd1
+      |_, False ->  bddLeft
       | BddNode(id1, v1, g1, d1), BddNode(id2, v2, g2, d2) ->
          if id1 = id2
          then
-           bdd1
+            bddLeft
          else
            let key = if id1 < id2 then (id1, id2) else (id2, id1)
            in try HTRelationbetweenBDDsDatabase.find orContainer key 
@@ -174,16 +174,16 @@ struct
                      addNode v1 (orBDDTetravex g1 g2) (orBDDTetravex d1 d2)
                    else if v1 < v2
                    then
-                     addNode v1 (orBDDTetravex g1 bdd2) (orBDDTetravex d1 bdd2)
+                     addNode v1 (orBDDTetravex g1  bddRight) (orBDDTetravex d1  bddRight)
                    else
-                     addNode v2 (orBDDTetravex bdd1 g2) (orBDDTetravex bdd1 d2)
+                     addNode v2 (orBDDTetravex  bddLeft g2) (orBDDTetravex  bddLeft d2)
                  in HTRelationbetweenBDDsDatabase.add orContainer (id1, id2) newNode;
                  newNode
                    
 (***************************************Implies relation between BDDs***********************************)
 
-    let bdd1Impliesbdd2BDD bdd1 bdd2 =
-      orBDDTetravex (notBDDTetravex bdd1) bdd2  
+    let  bddLeftImpliesbddRightBDD  bddLeft  bddRight =
+      orBDDTetravex (notBDDTetravex  bddLeft)  bddRight  
 
     let rec satisfact = function
       | True -> (true, [])
@@ -298,7 +298,7 @@ module Tetravex =
                 (*8888888888888888888888888888888888888888888888888888888888888888888888*)
                 (* returns the BDD with the value *)
 
-                method formSetter carre a b = (*TODO*)
+                method formSetter carre a b = 
                     BDDTetravex.addNode ((string_of_int b) ^ "," ^ (string_of_int a) ^ ":" ^ (string_of_int carre#id)) BDDTetravex.False BDDTetravex.True
                 (*
 					This method checks the possible carres at the right side of a certain position 
@@ -320,7 +320,7 @@ module Tetravex =
                         if t#id = carre_analised#id then (*Checks to see if the next carre is not the analised one*)
                             self#obligeRightCarre_to_belong a b carre_analised q
                         else if (t#get_left = carre_analised#get_right) then (*If the next carre cand be put at the right side of the analised one, we add him in the result*)
-                            let f = self#formSetter t (a + 1) b in (*TODO*)
+                            let f = self#formSetter t (a + 1) b in 
                             BDDTetravex.orBDDTetravex f (self#obligeRightCarre_to_belong a b carre_analised q) 
                         else
                             self#obligeRightCarre_to_belong a b carre_analised q
@@ -355,7 +355,7 @@ module Tetravex =
                         else if (u = a && v = b) then
                             aux u (v + 1)
                         else
-                            BDDTetravex.andBDDTetravex (BDDTetravex.notBDDTetravex(self#formSetter carre_analised u v))( aux u (v + 1)) (*TODO*)
+                            BDDTetravex.andBDDTetravex (BDDTetravex.notBDDTetravex(self#formSetter carre_analised u v))( aux u (v + 1)) 
                     in
                     aux 1 1
 
@@ -387,10 +387,10 @@ module Tetravex =
                 method conditionsCheckToPlaceAnalisedCarreInAB carre_analised a b = 
                     let row_condition = if a + 1 <= n then self#obligeRightCarre_to_belong a b carre_analised carres_list else BDDTetravex.True in (* If it is in the last *)
                     let column_condition = if b + 1 <= p then self#obligeDownCarre_to_belong a b carre_analised carres_list else BDDTetravex.True in
-                    let v = self#formSetter carre_analised a b in (*TODO*)
+                    let v = self#formSetter carre_analised a b in   
                     let placed_one_time = self#uniquelyPlacedIn carre_analised a b in
                     let unique_in_this_grid_position = self#anyOtherCarreInThisGridPositionButCarreAnalised carre_analised a b in
-                    BDDTetravex.bdd1Impliesbdd2BDD v (BDDTetravex.andBDDTetravex(BDDTetravex.andBDDTetravex(BDDTetravex.andBDDTetravex row_condition column_condition) placed_one_time) unique_in_this_grid_position) (*TODO*)
+                    BDDTetravex. bddLeftImpliesbddRightBDD v (BDDTetravex.andBDDTetravex(BDDTetravex.andBDDTetravex(BDDTetravex.andBDDTetravex row_condition column_condition) placed_one_time) unique_in_this_grid_position)   
 
                 (* Method used to apply the above method to all the possible grid positions 
                 	input: carre_to_be_analised
@@ -407,7 +407,7 @@ module Tetravex =
                         else if b > p then
                             aux (a + 1) 1
                         else
-                            BDDTetravex.andBDDTetravex(self#conditionsCheckToPlaceAnalisedCarreInAB carre_analised a b) (aux a (b + 1)) (*TODO*)
+                            BDDTetravex.andBDDTetravex(self#conditionsCheckToPlaceAnalisedCarreInAB carre_analised a b) (aux a (b + 1))   
                     in
                     aux 1 1
 
@@ -418,18 +418,18 @@ module Tetravex =
                     in
                     let rec aux a b =
                         if a > n then
-                            BDDTetravex.True (*Attention Type*)
+                            BDDTetravex.True 
                         else if b > p then
                             aux (a + 1) 1
                         else
-                            BDDTetravex.andBDDTetravex(exist a b carres_list) (aux a (b +1)) (*TODO*) 
+                            BDDTetravex.andBDDTetravex(exist a b carres_list) (aux a (b +1))    
                     in
                     aux 1 1
                 
-                (*TODO*)
+                  
                 method toutPlacer = function      
                     | [] -> BDDTetravex.True
-                    | t::q -> BDDTetravex.andBDDTetravex (self#conditionsCheckToPlaceAnalisedCarreForAllPositions t) (self#toutPlacer q) (*TODO*) 
+                    | t::q -> BDDTetravex.andBDDTetravex (self#conditionsCheckToPlaceAnalisedCarreForAllPositions t) (self#toutPlacer q)    
                 
 
 
