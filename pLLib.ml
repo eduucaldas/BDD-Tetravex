@@ -1,5 +1,44 @@
 open VariableInterfaces
 
+module type OrderedType =
+sig
+  type t
+  val compare : t -> t -> int
+  val equal : t -> t -> bool
+end
+
+
+module type VariableType =
+sig
+  type t
+  val compare : t -> t -> int
+  val equal : t -> t -> bool
+  val str : t -> string
+  val to_t : string -> t option
+end
+
+module CharType =
+struct
+  type t = char
+  let equal c1 c2 = (c1 = c2)
+  let compare c1 c2 = Char.compare c1 c2
+  let str c = Char.escaped c
+  let to_t s = match String.length s with
+    | 1 -> Some s.[0]
+    | _ -> None
+end
+
+module IntegerType =
+struct
+  type t = int
+  let equal c1 c2 = (c1 = c2)
+  let compare c1 c2 = (c1 - c2)
+  let str c = string_of_int c
+  let to_t s = int_of_string_opt s
+end
+
+>>>>>>> 2265f60c8169599c630c28bf924e3839f201a8f4
+
 module PropositionalLogic(VT: VariableType) = struct
   (*Fundamental to understand*)
   type formule =
