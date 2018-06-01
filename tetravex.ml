@@ -375,7 +375,7 @@ module Tetravex =
                     | [] -> BDDTetravex.True
                     | t::q -> if t#id = carre_analised#id then aux q
                         else
-                            BDDTetravex.andBDDTetravex (BDDTetravex.notBDDTetravex(self#formSetter t a b)) (aux q) (*TODO*)
+                            BDDTetravex.andBDDTetravex (BDDTetravex.notBDDTetravex(self#formSetter t a b)) (aux q)  
                     in
                     aux carres_list
 
@@ -414,7 +414,7 @@ module Tetravex =
                 method existenceTetravex =   	
                     let rec exist a b = function
                         | [] -> BDDTetravex.False
-                        | t::q -> BDDTetravex.orBDDTetravex(self#formSetter t a b)(exist a b q) (*TODO*)
+                        | t::q -> BDDTetravex.orBDDTetravex(self#formSetter t a b)(exist a b q)  
                     in
                     let rec aux a b =
                         if a > n then
@@ -433,12 +433,12 @@ module Tetravex =
                 
 
 
-                (*TODO*)
+                 
                 method solve () =
                     let allPlaced = self#toutPlacer carres_list in
                     let existenceTetravex = self#existenceTetravex in
-                    let bdd = BDDTetravex.andBDDTetravex allPlaced  existenceTetravex in (*TODO*)
-                    let (b, l) = BDDTetravex.satisfact bdd in (*TODO*)
+                    let bdd = BDDTetravex.andBDDTetravex allPlaced  existenceTetravex in  
+                    let (b, l) = BDDTetravex.satisfact bdd in  
                     if b then List.map (fun (x, _) ->  x) (List.filter (fun (_, x) ->not x) l) else []
 
         end
