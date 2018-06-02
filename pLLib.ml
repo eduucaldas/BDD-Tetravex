@@ -76,11 +76,11 @@ module PropositionalLogic(VT: VariableType) = struct
     | false -> form_f
     | true -> form_t
 
-  (* Evaluates a formule, using a list of booleans to be assigned to the variables in the order they appear, infix *)
-  let eval_list_random formu l_b =
-    let eval_step formul b = choose (eval_random_v formul) b in
-    let simple_formu = simplify formu in
-    List.fold_left eval_step simple_formu l_b
+  (*   (* Evaluates a formule, using a list of booleans to be assigned to the variables in the order they appear, infix *)
+       let eval_list_random formu l_b =
+       let eval_step formul b = choose (eval_random_v formul) b in
+       let simple_formu = simplify formu in
+       List.fold_left eval_step simple_formu l_b *)
 
   (* Evaluates a formule, using the list of (var, bool), for each var assigns the corresponding bool *)
   let eval_order formu l_vb =
@@ -94,12 +94,12 @@ module PropositionalLogic(VT: VariableType) = struct
   (*Just ensure that we evaluated stuff completely*)
   exception PartialValuation
 
-  let valuation_random formu l_b =
-    let evaluated_formu = eval_list_random formu l_b in
-    match evaluated_formu with
-    | Boolean b -> b
-    | _ -> raise PartialValuation
-
+  (*   let valuation_random formu l_b =
+       let evaluated_formu = eval_list_random formu l_b in
+       match evaluated_formu with
+       | Boolean b -> b
+       | _ -> raise PartialValuation
+  *)
   let valuation_order formu l_ev =
     let evaluated_formu = eval_order formu l_ev in
     match evaluated_formu with
