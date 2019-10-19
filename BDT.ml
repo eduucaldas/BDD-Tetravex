@@ -38,6 +38,14 @@ struct
       | Some vr -> Node (create_random form_f, vr, create_random form_t)
       | None -> create_random (form_t)
 
+  let rec create_random formu =
+    match formu with
+    | PL.Boolean b -> Leaf b
+    | _ -> let (v, form_f, form_t) = PL.eval_random_v formu in
+      match v with
+      | Some vr -> Node (create_random form_f, vr, create_random form_t)
+      | None -> create_random (form_t)
+
   (* Creates a BDD following the order of var in l_v *)
   exception InsufficientEvaluations
 
